@@ -132,7 +132,7 @@ def forecast_plot(forecast, mape):
     )
     return fig
 
-mdf = load_iqvia("iqvia_data/New Analysis (1).csv")
+mdf = load_iqvia("New Analysis (1).csv")
 pie_chart = pie_plot(mdf)
 line_chart = line_plot(mdf)
 
