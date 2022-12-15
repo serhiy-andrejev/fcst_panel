@@ -32,7 +32,18 @@ hide_menu_style = """
         </style>
         """
 st.markdown(hide_menu_style, unsafe_allow_html=True)
+st.markdown("""
+<style>
+    #MainMenu, header, footer {visibility: hidden;}
 
+    /* This code gets the first element on the sidebar,
+    and overrides its default styling */
+    section[data-testid="stSidebar"] div:first-child {
+        top: 0;
+        height: 100vh;
+    }
+</style>
+""",unsafe_allow_html=True)
 
 @st.cache()
 def load_iqvia(filepath):
@@ -128,65 +139,67 @@ def forecast_plot(forecast, mape):
     fig.update_layout(
         yaxis_title=predict_type,
         title='Model prediction / Mean Average Percentage Error: ' + str(mape) + '%',
-        hovermode="x"
+        hovermode="x",
+        height=800
     )
     return fig
 
-mdf = load_iqvia("New Analysis (1).csv")
-pie_chart = pie_plot(mdf)
-line_chart = line_plot(mdf)
-
 st.title('IQVIA Forecast panel')
-
-c1, c2 = st.columns(((1, 2)), gap = 'small')
-with c1:
-    st.header("Volume of available data chart")
-    st.plotly_chart(pie_chart, use_container_width=True)
-with c2:
-    st.header("Time series by each category chart")
-    st.plotly_chart(line_chart, use_container_width=True)
-
-but1, but2 = st.columns(2)
-with but1:    
-    product_class = st.selectbox(label = 'Choose product category to predict',
-                                 options = mdf['Product Class'].unique())
-with but2:
-    predict_type = st.selectbox(label = 'Choose value to predict',
-                                options = ['Units', 'Vol'])
-
-gr_part_data = mdf.loc[mdf['Product Class'] == product_class]
-gr_part_data = gr_part_data.groupby(by='date').agg({'Vol': 'sum',
-                                                    'Units': 'sum',
-                                                    'UPC': 'count'}).reset_index()
-part_df = gr_part_data.rename(columns = {'date':'ds', predict_type: 'y'})[['ds', 'y']]
-part_df = part_df.loc[part_df['ds'] > '2020-05-10']
-#part_df = part_df.loc[~((part_df['ds'].dt.month == 1) & (part_df['ds'].dt.day.isin([1,2])))]
-
-part_df_ = part_df.copy()
-part_df_.index = part_df['ds']
-part_df_ = part_df_.drop(columns = 'ds')
-part_df = part_df.resample('2W', on='ds').sum().reset_index()
-
-
-split_int = len(part_df) - 6
-df_train = part_df[1:split_int]
-df_val = part_df[split_int:-1]
-
-prophet_basic = Prophet(yearly_seasonality = True,
-                        seasonality_prior_scale = 1,
-                        changepoint_prior_scale = 0.4,
-                        holidays_prior_scale = 0.15,
-                       seasonality_mode = 'multiplicative')
-prophet_basic.add_country_holidays('CA')
-prophet_basic.fit(part_df[1:-1])
-
-future= prophet_basic.make_future_dataframe(periods=12, freq = '2W')
-forecast=prophet_basic.predict(future)
-
-mape = mean_absolute_percentage_error(part_df.y, forecast.yhat[:len(part_df.y)]) * 100
-st.plotly_chart(forecast_plot(forecast, mape) , use_container_width= True)
-
-with st.expander(label = 'Prophet components'):
-    st.pyplot(prophet_basic.plot_components(forecast))
-#plt.savefig('fcst_iqvia.png', dpi = 150)
+iqvia_data = st.file_uploader("Choose a file")
+if iqvia_data is not None:
+    mdf = load_iqvia(iqvia_data)
+    pie_chart = pie_plot(mdf)
+    line_chart = line_plot(mdf)
+    
+    c1, c2 = st.columns(((1, 2)), gap = 'small')
+    with c1:
+        st.header("Volume of available data chart")
+        st.plotly_chart(pie_chart, use_container_width=True)
+    with c2:
+        st.header("Time series by each category chart")
+        st.plotly_chart(line_chart, use_container_width=True)
+    
+    but1, but2 = st.columns(2)
+    with but1:    
+        product_class = st.selectbox(label = 'Choose product category to predict',
+                                     options = mdf['Product Class'].unique())
+    with but2:
+        predict_type = st.selectbox(label = 'Choose value to predict',
+                                    options = ['Units', 'Vol'])
+    
+    gr_part_data = mdf.loc[mdf['Product Class'] == product_class]
+    gr_part_data = gr_part_data.groupby(by='date').agg({'Vol': 'sum',
+                                                        'Units': 'sum',
+                                                        'UPC': 'count'}).reset_index()
+    part_df = gr_part_data.rename(columns = {'date':'ds', predict_type: 'y'})[['ds', 'y']]
+    part_df = part_df.loc[part_df['ds'] > '2020-05-10']
+    #part_df = part_df.loc[~((part_df['ds'].dt.month == 1) & (part_df['ds'].dt.day.isin([1,2])))]
+    
+    part_df_ = part_df.copy()
+    part_df_.index = part_df['ds']
+    part_df_ = part_df_.drop(columns = 'ds')
+    part_df = part_df.resample('2W', on='ds').sum().reset_index()
+    
+    
+    split_int = len(part_df) - 6
+    df_train = part_df[1:split_int]
+    df_val = part_df[split_int:-1]
+    
+    prophet_basic = Prophet(yearly_seasonality = True,
+                            seasonality_prior_scale = 1,
+                            changepoint_prior_scale = 0.4,
+                            holidays_prior_scale = 0.15,
+                           seasonality_mode = 'multiplicative')
+    prophet_basic.add_country_holidays('CA')
+    prophet_basic.fit(part_df[1:-1])
+    
+    future= prophet_basic.make_future_dataframe(periods=12, freq = '2W')
+    forecast=prophet_basic.predict(future)
+    
+    mape = mean_absolute_percentage_error(part_df.y, forecast.yhat[:len(part_df.y)]) * 100
+    st.plotly_chart(forecast_plot(forecast, mape) , use_container_width= True)
+    
+    with st.expander(label = 'Prophet components'):
+        st.pyplot(prophet_basic.plot_components(forecast))
+    #plt.savefig('fcst_iqvia.png', dpi = 150)
 
