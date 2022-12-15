@@ -7,13 +7,7 @@ Created on Wed Dec 14 12:50:27 2022
 
 import streamlit as st
 import pandas as pd 
-import numpy as np
-
-import matplotlib.pyplot as plt
-import seaborn as sns
 from prophet import Prophet
-from prophet.plot import add_changepoints_to_plot
-from prophet.diagnostics import performance_metrics
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -21,7 +15,7 @@ import plotly.graph_objects as go
 
 
 from sklearn.metrics import mean_absolute_percentage_error
-import itertools
+
 
 import streamlit as st
 
